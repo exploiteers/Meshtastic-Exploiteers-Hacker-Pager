@@ -71,6 +71,33 @@ bool CryptoEngine::regeneratePublicKey(uint8_t *pubKey, uint8_t *privKey)
     }
     return true;
 }
+
+bool CryptoEngine::ensurePkiKeys(meshtastic_Config_SecurityConfig &security, meshtastic_User &user)
+{
+    if (user.is_licensed) {
+        return false;
+    }
+
+    bool keygenSuccess = false;
+    if (security.private_key.size == 32) {
+        if (regeneratePublicKey(security.public_key.bytes, security.private_key.bytes)) {
+            keygenSuccess = true;
+        }
+    } else {
+        LOG_INFO("Generate new PKI keys");
+        generateKeyPair(security.public_key.bytes, security.private_key.bytes);
+        keygenSuccess = true;
+    }
+
+    if (keygenSuccess) {
+        security.public_key.size = 32;
+        security.private_key.size = 32;
+        user.public_key.size = 32;
+        memcpy(user.public_key.bytes, security.public_key.bytes, 32);
+    }
+
+    return keygenSuccess;
+}
 #endif
 
 /**
@@ -85,7 +112,7 @@ bool CryptoEngine::regeneratePublicKey(uint8_t *pubKey, uint8_t *privKey)
  * @param bytes Buffer containing plaintext input.
  * @param bytesOut Output buffer to be populated with encrypted ciphertext.
  */
-bool CryptoEngine::encryptCurve25519(uint32_t toNode, uint32_t fromNode, meshtastic_UserLite_public_key_t remotePublic,
+bool CryptoEngine::encryptCurve25519(uint32_t toNode, uint32_t fromNode, meshtastic_NodeInfoLite_public_key_t remotePublic,
                                      uint64_t packetNum, size_t numBytes, const uint8_t *bytes, uint8_t *bytesOut)
 {
     uint8_t *auth;
@@ -125,7 +152,7 @@ bool CryptoEngine::encryptCurve25519(uint32_t toNode, uint32_t fromNode, meshtas
  * @param bytes Buffer containing ciphertext input.
  * @param bytesOut Output buffer to be populated with decrypted plaintext.
  */
-bool CryptoEngine::decryptCurve25519(uint32_t fromNode, meshtastic_UserLite_public_key_t remotePublic, uint64_t packetNum,
+bool CryptoEngine::decryptCurve25519(uint32_t fromNode, meshtastic_NodeInfoLite_public_key_t remotePublic, uint64_t packetNum,
                                      size_t numBytes, const uint8_t *bytes, uint8_t *bytesOut)
 {
     const uint8_t *auth = bytes + numBytes - 12; // set to last 8 bytes of text?
