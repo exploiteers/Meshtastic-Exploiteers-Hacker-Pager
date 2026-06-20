@@ -26,6 +26,7 @@ FILE(GLOB_RECURSE src_recurse
     ${CMAKE_SOURCE_DIR}/src/mqtt/*.*
     ${CMAKE_SOURCE_DIR}/src/nimble/*.*
     ${CMAKE_SOURCE_DIR}/src/platform/esp32/*.*
+    ${CMAKE_SOURCE_DIR}/src/power/*.*
     ${CMAKE_SOURCE_DIR}/src/serialization/*.*
 )
 

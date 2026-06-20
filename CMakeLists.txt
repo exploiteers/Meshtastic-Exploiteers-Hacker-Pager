@@ -9,4 +9,4 @@ project(firmware)
 # There are some existing warnings in Meshtastic that become errors when compiling with ESP-IDF:
 idf_build_set_property(COMPILE_OPTIONS "-Wno-error=aligned-new=" APPEND)
 idf_build_set_property(COMPILE_OPTIONS "-Wno-error=parentheses" APPEND)
-
+idf_build_set_property(COMPILE_OPTIONS "-Wno-error=maybe-uninitialized" APPEND)

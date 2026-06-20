@@ -10,6 +10,28 @@
 #include "memGet.h"
 #include "configuration.h"
 
+#if defined(MESHTASTIC_DYNAMIC_SBRK_HEAP)
+#include <malloc.h>
+#include <unistd.h> // sbrk
+
+#ifdef ARCH_STM32WL
+// Returns the uncommitted sbrk headroom: addressable space between the current heap
+// break and the stack pointer that has not yet been committed to the arena.
+static uint32_t sbrkHeadroom()
+{
+    // defined in STM32 linker script
+    extern char _estack;
+    extern char _Min_Stack_Size;
+
+    uint32_t max_sp = (uint32_t)(&_estack - &_Min_Stack_Size);
+    uint32_t heap_end = (uint32_t)sbrk(0);
+    return (max_sp > heap_end) ? (max_sp - heap_end) : 0;
+}
+#else
+#error Unsupported architecture!
+#endif
+#endif
+
 MemGet memGet;
 
 /**
@@ -24,6 +46,9 @@ uint32_t MemGet::getFreeHeap()
     return dbgHeapFree();
 #elif defined(ARCH_RP2040)
     return rp2040.getFreeHeap();
+#elif defined(MESHTASTIC_DYNAMIC_SBRK_HEAP) // Currently: ARCH_STM32WL
+    struct mallinfo m = mallinfo();
+    return m.fordblks + sbrkHeadroom(); // Free space within arena + uncommitted sbrk headroom
 #else
     // this platform does not have heap management function implemented
     return UINT32_MAX;
@@ -42,6 +67,9 @@ uint32_t MemGet::getHeapSize()
     return dbgHeapTotal();
 #elif defined(ARCH_RP2040)
     return rp2040.getTotalHeap();
+#elif defined(MESHTASTIC_DYNAMIC_SBRK_HEAP) // Currently: ARCH_STM32WL
+    struct mallinfo m = mallinfo();
+    return m.arena + sbrkHeadroom(); // Non-mmapped space allocated + uncommitted sbrk headroom
 #else
     // this platform does not have heap management function implemented
     return UINT32_MAX;
@@ -78,4 +106,16 @@ uint32_t MemGet::getPsramSize()
 #else
     return 0;
 #endif
+}
+
+void displayPercentHeapFree()
+{
+    uint32_t freeHeap = memGet.getFreeHeap();
+    uint32_t totalHeap = memGet.getHeapSize();
+    if (totalHeap == 0 || totalHeap == UINT32_MAX) {
+        LOG_INFO("Heap size unavailable");
+        return;
+    }
+    int percent = (int)((freeHeap * 100) / totalHeap);
+    LOG_INFO("Heap free: %d%% (%u/%u bytes)", percent, freeHeap, totalHeap);
 }
